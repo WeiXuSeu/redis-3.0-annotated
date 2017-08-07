@@ -352,7 +352,7 @@ size_t sdsAllocSize(sds s) {
 void sdsIncrLen(sds s, int incr) {
     struct sdshdr *sh = (void*) (s-(sizeof(struct sdshdr)));
 
-    // 确保 sds 空间足够
+    // 确保 sds 空间足够,若incr为负，会怎样？
     assert(sh->free >= incr);
 
     // 更新属性
@@ -815,7 +815,7 @@ sds sdscatfmt(sds s, char const *fmt, ...) {
     }
     va_end(ap);
 
-    /* Add null-term */
+    /* Add null-term, for sds, preserve a byte to save '\0' besides sds->len*/
     s[i] = '\0';
     return s;
 }
@@ -852,6 +852,11 @@ sds sdstrim(sds s, const char *cset) {
     ep = end = s+sdslen(s)-1;
 
     // 修剪, T = O(N^2)
+    /*
+    const char * strchr ( const char * str, int character );
+    char       * strchr (       char * str, int character );
+    Locate first occurrence of character in string
+    */
     while(sp <= end && strchr(cset, *sp)) sp++;
     while(ep > start && strchr(cset, *ep)) ep--;
 
@@ -979,6 +984,26 @@ void sdstoupper(sds s) {
  * If two strings share exactly the same prefix, but one of the two has
  * additional characters, the longer string is considered to be greater than
  * the smaller one. */
+
+/*
+int memcmp(const void *str1, const void *str2, size_t n)
+compares the first n bytes of memory area str1 and memory area str2.
+
+Parameters
+str1 -- This is the pointer to a block of memory.
+
+str2 -- This is the pointer to a block of memory.
+
+n -- This is the number of bytes to be compared.
+
+Return Value
+if Return value < 0 then it indicates str1 is less than str2.
+
+if Return value > 0 then it indicates str2 is less than str1.
+
+if Return value = 0 then it indicates str1 is equal to str2.
+*/
+
 int sdscmp(const sds s1, const sds s2) {
     size_t l1, l2, minlen;
     int cmp;
@@ -1038,7 +1063,9 @@ sds *sdssplitlen(const char *s, int len, const char *sep, int seplen, int *count
     
     // T = O(N^2)
     for (j = 0; j < (len-(seplen-1)); j++) {
-        /* make sure there is room for the next element and the final one */
+        /* make sure there is room for the next element and the final one
+        , if there is another seprator in the left string, then in normal
+        we need two room, the next and the last  */
         if (slots < elements+2) {
             sds *newtokens;
 
@@ -1054,7 +1081,7 @@ sds *sdssplitlen(const char *s, int len, const char *sep, int seplen, int *count
             if (tokens[elements] == NULL) goto cleanup;
             elements++;
             start = j+seplen;
-            j = j+seplen-1; /* skip the separator */
+            j = j+seplen-1; /* skip the separator, j++ in for */
         }
     }
     /* Add the final element. We are sure there is room in the tokens array. */
