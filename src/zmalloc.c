@@ -45,6 +45,11 @@ void zlibc_free(void *ptr) {
 #include "zmalloc.h"
 
 #ifdef HAVE_MALLOC_SIZE
+//分配内存的时候, 多分配 `PREFIX_SIZE` 字节的内存空间用于存储此次分配内存空间的大小
+/*PREFIX_SIZE用来记录malloc已分配到的内存大小
+tc_malloc/je_malloc/Mac平台分别采用tc_malloc_size/je_malloc_usable_size/malloc_size（不需要单独开空间计算得到的内存大小，PREFIX_SIZE值置为0）  
+linux和sun平台分别采用sizeof(size_t)=8字节和sizeof(long long)定长字段记录，记录分配空间的大小 
+*/
 #define PREFIX_SIZE (0)
 #else
 #if defined(__sun) || defined(__sparc) || defined(__sparc__)
@@ -119,6 +124,7 @@ static void zmalloc_default_oom(size_t size) {
 static void (*zmalloc_oom_handler)(size_t) = zmalloc_default_oom;
 
 void *zmalloc(size_t size) {
+    //分配内存的时候, 多分配 `PREFIX_SIZE` 字节的内存空间用于存储此次分配内存空间的大小
     void *ptr = malloc(size+PREFIX_SIZE);
 
     if (!ptr) zmalloc_oom_handler(size);
@@ -208,6 +214,7 @@ void zfree(void *ptr) {
 }
 
 char *zstrdup(const char *s) {
+    //contain the terminating null character
     size_t l = strlen(s)+1;
     char *p = zmalloc(l);
 
@@ -258,6 +265,18 @@ void zmalloc_set_oom_handler(void (*oom_handler)(size_t)) {
 #include <sys/stat.h>
 #include <fcntl.h>
 
+/*sysconf - get configuration information at run time
+#include <unistd.h>
+long sysconf(int name);
+    PAGESIZE - _SC_PAGESIZE
+    Size of a page in bytes.  Must not be less than 1.  (Some systems use PAGE_SIZE instead.)
+
+int snprintf ( char * s, size_t n, const char * format, ... );
+    Write formatted output to sized buffer
+    Composes a string with the same text that would be printed if format was used on printf, but instead of being printed, 
+    the content is stored as a C string in the buffer pointed by s (taking n as the maximum buffer capacity to fill).
+
+*/
 size_t zmalloc_get_rss(void) {
     int page = sysconf(_SC_PAGESIZE);
     size_t rss;
@@ -275,9 +294,9 @@ size_t zmalloc_get_rss(void) {
     close(fd);
 
     p = buf;
-    count = 23; /* RSS is the 24th field in /proc/<pid>/stat */
+    count = 23; /* RSS is the 24th field in /proc/<pid>/stat， vsize=1409024（page） 该任务的虚拟地址空间大小 */
     while(p && count--) {
-        p = strchr(p,' ');
+        p = strchr(p,' ');//Locate first occurrence of character in string
         if (p) p++;
     }
     if (!p) return 0;
@@ -332,6 +351,12 @@ size_t zmalloc_get_private_dirty(void) {
     FILE *fp = fopen("/proc/self/smaps","r");
 
     if (!fp) return 0;
+    /*
+    char * fgets ( char * str, int num, FILE * stream );
+    Get string from stream
+    Reads characters from stream and stores them as a C string into str until (num-1) characters have been read or either a newline or the end-of-file is reached, 
+    whichever happens first.
+    */
     while(fgets(line,sizeof(line),fp) != NULL) {
         if (strncmp(line,"Private_Dirty:",14) == 0) {
             char *p = strchr(line,'k');

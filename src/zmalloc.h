@@ -33,8 +33,20 @@
 
 /* Double expansion needed for stringification of macro values. */
 #define __xstr(s) __str(s)
+/*
+(1) stringification,  "#"
+#define STR(s)     #s  
+(2) concatenate two string "##"                    
+#define CONS(a,b)  int(a##e##b)
+printf(STR(vck));           // 输出字符串"vck"
+printf("%d/n", CONS(2,3));  // 2e3 输出:2000
+*/
 #define __str(s) #s
 
+/*
+tcmalloc is a memory allocator that's optimized for high concurrency situations. 
+The tc in tcmalloc stands for thread cache — the mechanism through which this particular allocator is able to satisfy certain (often most) allocations locklessly.
+*/
 #if defined(USE_TCMALLOC)
 #define ZMALLOC_LIB ("tcmalloc-" __xstr(TC_VERSION_MAJOR) "." __xstr(TC_VERSION_MINOR))
 #include <google/tcmalloc.h>
@@ -42,9 +54,16 @@
 #define HAVE_MALLOC_SIZE 1
 #define zmalloc_size(p) tc_malloc_size(p)
 #else
+/*When the preprocessor hits the #error directive, it will report the string as an error message and halt compilation; 
+what exactly the error message looks like depends on the compiler.*/
 #error "Newer version of tcmalloc required"
 #endif
 
+/*
+jemalloc is a general purpose malloc(3) implementation that emphasizes fragmentation avoidance and scalable concurrency support. 
+jemalloc first came into use as the FreeBSD libc allocator in 2005, and since then it has found its way into numerous applications that rely on its predictable behavior.
+linux和sun平台分别采用sizeof(size_t)=8字节和sizeof(long long)定长字段记录，记录分配空间的大小 
+*/
 #elif defined(USE_JEMALLOC)
 #define ZMALLOC_LIB ("jemalloc-" __xstr(JEMALLOC_VERSION_MAJOR) "." __xstr(JEMALLOC_VERSION_MINOR) "." __xstr(JEMALLOC_VERSION_BUGFIX))
 #include <jemalloc/jemalloc.h>
