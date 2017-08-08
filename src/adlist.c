@@ -219,7 +219,9 @@ list *listInsertNode(list *list, listNode *old_node, void *value, int after) {
             list->head = node;
         }
     }
-
+    /*上面仅处理node->next,node->prev;
+    而关于其前后节点的处理，则合并到下面处理
+    */
     // 更新新节点的前置指针
     if (node->prev != NULL) {
         node->prev->next = node;
