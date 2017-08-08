@@ -81,7 +81,11 @@ static int checkStringLength(redisClient *c, long long size) {
  * 如果 ok_reply 为 NULL ，那么 "+OK" 被返回。
  * 如果 abort_reply 为 NULL ，那么 "$-1" 被返回。
  */
-
+/*
+1 << 0 = `0000 0001`
+1 << 1 = `0000 0010`
+1 << 2 = `0000 0100`
+*/
 #define REDIS_SET_NO_FLAGS 0
 #define REDIS_SET_NX (1<<0)     /* Set if key not exists. */
 #define REDIS_SET_XX (1<<1)     /* Set if key exists. */

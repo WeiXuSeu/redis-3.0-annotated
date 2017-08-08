@@ -1,4 +1,4 @@
-/* Redis Object implementation.
+./* Redis Object implementation.
  *
  * Copyright (c) 2009-2012, Salvatore Sanfilippo <antirez at gmail dot com>
  * All rights reserved.
@@ -33,7 +33,16 @@
 #include <ctype.h>
 
 /*
- * 创建一个新 robj 对象
+ * 创建一个新 robj 对象,
+ in object.c, some funcs have a parmater "client c", e.g
+ int getLongFromObjectOrReply(client *c, robj *o, long *target, const char *msg);
+ int getLongLongFromObjectOrReply(client *c, robj *o, long long *target, const char *msg);
+ ...
+ object interact command：
+ object refcount <key> 返回key所指的对象的引用计数
+ object encoding <key> 返回key所指的对象中存放的数据的编码方式
+ object idletime <key> 返回key所指的对象的空转时长
+ void objectCommand(client *c)
  */
 robj *createObject(int type, void *ptr) {
 
@@ -109,7 +118,7 @@ robj *createStringObjectFromLongLong(long long value) {
     robj *o;
 
     // value 的大小符合 REDIS 共享整数的范围
-    // 那么返回一个共享对象
+    // 那么返回一个共享对象,shared.intergers created like if.else
     if (value >= 0 && value < REDIS_SHARED_INTEGERS) {
         incrRefCount(shared.integers[value]);
         o = shared.integers[value];
@@ -118,6 +127,8 @@ robj *createStringObjectFromLongLong(long long value) {
     } else {
         // 值可以用 long 类型保存，
         // 创建一个 REDIS_ENCODING_INT 编码的字符串对象
+        /* REDIS_ENCODING_INT的典型的编码方式，如下所示
+        */
         if (value >= LONG_MIN && value <= LONG_MAX) {
             o = createObject(REDIS_STRING, NULL);
             o->encoding = REDIS_ENCODING_INT;
@@ -184,7 +195,7 @@ robj *createStringObjectFromLongDouble(long double value) {
  *
  * The resulting object always has refcount set to 1. 
  *
- * 输出对象的 refcount 总为 1 。
+ * 输出对象的 refcount 总为 1, 不能再直接使用共享对象了，应为不保证其引用计数为1 。
  */
 robj *dupStringObject(robj *o) {
     robj *d;
@@ -1042,10 +1053,18 @@ robj *objectCommandLookupOrReply(redisClient *c, robj *key, robj *reply) {
 
 /* Object command allows to inspect the internals of an Redis Object.
  * Usage: OBJECT <verb> ... arguments ... */
+/*
+Redis提供了三个命令用于获取对象的一些参数。其命令形式如下：
+
+object refcount <key> 返回key所指的对象的引用计数
+object encoding <key> 返回key所指的对象中存放的数据的编码方式
+object idletime <key> 返回key所指的对象的空转时长
+*/
 void objectCommand(redisClient *c) {
     robj *o;
 
     // 返回对戏哪个的引用计数
+    //The strcasecmp() function compares the two strings s1 and s2, ignoring the case(a/A) of the characters. 
     if (!strcasecmp(c->argv[1]->ptr,"refcount") && c->argc == 3) {
         if ((o = objectCommandLookupOrReply(c,c->argv[2],shared.nullbulk))
                 == NULL) return;
