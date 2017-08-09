@@ -73,7 +73,7 @@ typedef struct dictEntry {
         int64_t s64;
     } v;
 
-    // 指向下个哈希表节点，形成链表
+    // 指向下个哈希表节点，形成链表, table-list.
     struct dictEntry *next;
 
 } dictEntry;

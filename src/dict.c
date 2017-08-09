@@ -284,6 +284,7 @@ int dictExpand(dict *d, unsigned long size)
 
     // 根据 size 参数，计算哈希表的大小
     // T = O(1)
+    // realsize:  2^n (2^n>=size>=2^(n-1)) if size > DICT_HT_INITIAL_SIZE, DICT_HT_INITIAL_SIZE ;
     unsigned long realsize = _dictNextPower(size);
 
     /* the size is invalid if it is smaller than the number of
@@ -303,7 +304,7 @@ int dictExpand(dict *d, unsigned long size)
 
     /* Is this the first initialization? If so it's not really a rehashing
      * we just set the first hash table so that it can accept keys. */
-    // 如果 0 号哈希表为空，那么这是一次初始化：
+    // 如果 0 号哈希表为空，那么这是第一次初始化：
     // 程序将新哈希表赋给 0 号哈希表的指针，然后字典就可以开始处理键值对了。
     if (d->ht[0].table == NULL) {
         d->ht[0] = n;
@@ -382,10 +383,10 @@ int dictRehash(dict *d, int n) {
         // 确保 rehashidx 没有越界
         assert(d->ht[0].size > (unsigned)d->rehashidx);
 
-        // 略过数组中为空的索引，找到下一个非空索引
+        // 略过数组中为空的索引，找到下一个非空索引,（d->rehashidx的起始位置？）
         while(d->ht[0].table[d->rehashidx] == NULL) d->rehashidx++;
 
-        // 指向该索引的链表表头节点
+        // 指向该索引的链表表头节点，依次取出ht[0]中的链表各节点，改变指针指向，转移到ht[1]中
         de = d->ht[0].table[d->rehashidx];
         /* Move all the keys in this bucket from the old to the new hash HT */
         // 将链表中的所有节点迁移到新哈希表
@@ -400,7 +401,7 @@ int dictRehash(dict *d, int n) {
             // 计算新哈希表的哈希值，以及节点插入的索引位置
             h = dictHashKey(d, de->key) & d->ht[1].sizemask;
 
-            // 插入节点到新哈希表
+            // 插入节点到新哈希表,单向链表
             de->next = d->ht[1].table[h];
             d->ht[1].table[h] = de;
 
@@ -424,6 +425,10 @@ int dictRehash(dict *d, int n) {
  * 返回以毫秒为单位的 UNIX 时间戳
  *
  * T = O(1)
+   struct timeval { 
+     time_t      tv_sec;     // seconds since the Epoch
+     suseconds_t tv_usec;    // microseconds since the Epoch
+     }
  */
 long long timeInMilliseconds(void) {
     struct timeval tv;
@@ -600,7 +605,7 @@ int dictReplace(dict *d, void *key, void *val)
      * as the previous one. In this context, think to reference counting,
      * you want to increment (set), and then decrement (free), and not the
      * reverse. */
-    // 先保存原有的值的指针
+    // 先保存原有的值指针指向的对象,值赋值，获取对应值对象
     auxentry = *entry;
     // 然后设置新的值
     // T = O(1)
@@ -619,13 +624,13 @@ int dictReplace(dict *d, void *key, void *val)
  *
  * See dictAddRaw() for more information. */
 /*
- * dictAddRaw() 根据给定 key 释放存在，执行以下动作：
+ * dictReplaceRaw 根据给定 key 释放存在，执行以下动作：
  *
  * 1) key 已经存在，返回包含该 key 的字典节点
  * 2) key 不存在，那么将 key 添加到字典
  *
  * 不论发生以上的哪一种情况，
- * dictAddRaw() 都总是返回包含给定 key 的字典节点。
+ * dictReplaceRaw 都总是返回包含给定 key 的字典节点。
  *
  * T = O(N)
  */
@@ -680,7 +685,7 @@ static int dictGenericDelete(dict *d, const void *key, int nofree)
         while(he) {
         
             if (dictCompareKeys(d, key, he->key)) {
-                // 超找目标节点
+                // 查找目标节点
 
                 /* Unlink the element from the list */
                 // 从链表中删除
@@ -1413,6 +1418,7 @@ static int _dictExpandIfNeeded(dict *d)
     // 1）字典已使用节点数和字典大小之间的比率接近 1：1
     //    并且 dict_can_resize 为真
     // 2）已使用节点数和字典大小之间的比率超过 dict_force_resize_ratio
+    // dict_force_resize_ratio = 5
     if (d->ht[0].used >= d->ht[0].size &&
         (dict_can_resize ||
          d->ht[0].used/d->ht[0].size > dict_force_resize_ratio))
@@ -1531,7 +1537,7 @@ void dictDisableResize(void) {
     dict_can_resize = 0;
 }
 
-#if 0
+#if 1
 
 /* The following is code that we don't use for Redis currently, but that is part
 of the library. */
